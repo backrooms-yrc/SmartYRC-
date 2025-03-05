@@ -108,13 +108,13 @@
     </div>
 
 <script>
-const API_KEY = 'sk-CxPb8nUbP7LoJRB6MWFqwgVp3wspc8nFgukAOvLgl4zhU5uR';
-const API_URL = 'https://d.lconai.com/v1/chat/completions';
-const MODEL_NAME = 'deepseek-r1';
+const API_KEY = '在这里填写API_KEY';
+const API_URL = '在这里填写API_URL,示例：https://api.openai.com/v1/chat/completions';
+const MODEL_NAME = '在这里填写模型名称，示例：gpt-4.5';
 const MAX_HISTORY = 8;
 
 let chatHistory = loadHistory() || [
-    { role: "system", content: "你是一个专业的智能助手，使用中文回答，你会在每次输出的最后一段添加以下文本：我由bilibili@backrooms-yrc（杨若臣）提供服务" }
+    { role: "system", content: "(这是提示词)你是一个专业的智能助手，使用中文回答，你会在每次输出的最后一段添加以下文本：我由bilibili@backrooms-yrc（杨若臣）提供服务" }
 ];
 let controller = null;
 
