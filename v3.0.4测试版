@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart YRC 深度智能对话系统</title>
+    <style>
+        /* 修改后的自适应样式 */
+        body { 
+            margin:0; 
+            padding:12px; 
+            background:#f3f4f6; 
+            font-family: system-ui;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 90%;
+            margin: 12px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        #chatBox {
+            height: 420px;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 8px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .message { margin:6px 0; padding:8px 12px; border-radius:14px; max-width:85%; line-height:1.4; word-break:break-word; }
+        .user-message { background:#e0f2fe; margin-left:auto; }
+        .ai-message { background:#f4f4f5; margin-right:auto; }
+        #inputArea { display:flex; gap:8px; align-items:center; }
+        #userInput { flex:1; padding:8px 12px; border:1px solid #e5e7eb; border-radius:20px; font-size:13px; }
+        .send-btn { 
+            background: none; 
+            border: none; 
+            padding: 6px; 
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .send-btn:hover { transform: scale(1.1); }
+        .send-icon { 
+            width: 24px; 
+            height: 24px;
+            fill: #3b82f6;
+        }
+        .typing-indicator { color:#6b7280; font-size:12px; }
+        .history-tip { 
+            text-align: center; 
+            color: #666; 
+            font-size: 12px; 
+            padding: 8px;
+            border-bottom: 1px dashed #eee;
+        }
+
+        /* 模型选择器样式 */
+        .model-selector {
+            margin: -10px 0 15px 0;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 20px;
+        }
+        #modelSelect {
+            padding: 6px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+            width: 160px;
+        }
+
+        /* Markdown样式 */
+        b { font-weight: bold; color: #1a1a1a; }
+        i { font-style: italic; }
+        a { color: #3b82f6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { 
+            background: #f5f5f5; 
+            padding: 2px 4px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            font-size: 12px; 
+        }
+        pre { 
+            background: #2d2d2d; 
+            color: #f8f8f2; 
+            padding: 10px; 
+            border-radius: 6px; 
+            overflow-x: auto; 
+            font-size: 12px; 
+            line-height: 1.5; 
+        }
+        blockquote { 
+            border-left: 4px solid #ddd; 
+            margin: 8px 0; 
+            padding-left: 12px; 
+            color: #666; 
+        }
+
+        /* 思考过程样式 */
+        think {
+            color: #888;
+            font-style: italic;
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+        }
+
+        /* 复制按钮样式 */
+        .copy-btn {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .message:hover .copy-btn {
+            opacity: 1;
+        }
+    </style>
+    <!-- 引入代码高亮库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h3 style="margin:0 0 12px 0; color:#1f2937; font-size:15px; text-align:center;">Smart YRC 深度智能对话系统</h3>
+        <div style="text-align: center; margin: 20px;">star on <a href="https://github.com/backrooms-yrc/SmartYRC-" target="_blank" style="color: #0366d6; text-decoration: none;">GitHub（国内镜像站）</a></div>
+        
+        <!-- 模型选择器 -->
+        <div class="model-selector">
+            <select id="modelSelect" onchange="saveSelectedModel()">
+                <option value="deepseek-reasoner">R1深度思考大模型</option>
+                <option value="gpt-3.5-turbo">ChatGPT-3.5</option>
+                <option value="gpt-4o">智能快速的GPT-4o</option>
+            </select>
+            <span style="font-size:12px; color:#666;">当前模型</span>
+        </div>
+
+        <div id="chatBox"></div>
+        <div id="inputArea">
+            <input type="text" id="userInput" placeholder="How can I help you today？">
+            <button class="send-btn" onclick="sendMessage()" aria-label="发送">
+                <svg class="send-icon" viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+<script>
+const API_KEY = 'sk-xxxxx';
+const API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const MAX_HISTORY = 8;
+
+// 模型配置
+const AVAILABLE_MODELS = {
+    'deepseek-reasoner': 'R1深度思考大模型',
+    'gpt-3.5-turbo': 'ChatGPT-3.5',
+    'gpt-4o': '智能快速的GPT-4o'
+};
+
+let selectedModel = localStorage.getItem('selectedModel') || 'deepseek-reasoner';
+document.getElementById('modelSelect').value = selectedModel;
+
+let chatHistory = loadHistory() || [
+    { role: "system", content: "你是DeepSeek-R1(联网版)，一个专业的智能助手，使用中文回答。你尽量不会使用Latex等数学语言，而是使用Markdown代替。你会在每次输出的最后一段添加以下文本：我由bilibili@backrooms-yrc（杨若臣）提供服务" }
+];
+let controller = null;
+
+window.onload = () => {
+    renderHistory();
+    hljs.highlightAll();
+};
+
+function saveSelectedModel() {
+    selectedModel = document.getElementById('modelSelect').value;
+    localStorage.setItem('selectedModel', selectedModel);
+    // 切换模型时重置历史记录
+    chatHistory = [chatHistory[0]];
+    saveHistory();
+    renderHistory();
+}
+
+async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage('user', message);
+    input.value = '';
+    input.disabled = true;
+    
+    try {
+        const aiMsgId = addMessage('assistant', '', true);
+        if (controller) controller.abort();
+        controller = new AbortController();
+
+        const context = [
+            chatHistory[0],
+            ...chatHistory.slice(-MAX_HISTORY + 1),
+            { role: "user", content: message }
+        ];
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                model: selectedModel,
+                messages: context,
+                stream: true,
+                temperature: 0.7
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`请求失败: ${response.status} - ${errorBody}`);
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            
+            const lines = buffer.split(/(\r\n|\r|\n)/);
+            buffer = '';
+            
+            for (let line of lines) {
+                if (line.trim().length === 0) continue;
+                
+                if (!line.startsWith('data: ')) {
+                    buffer += line;
+                    continue;
+                }
+                
+                try {
+                    const jsonStr = line.replace('data: ', '');
+                    const data = JSON.parse(jsonStr);
+                    
+                    const content = data.choices?.[0]?.delta?.content || '';
+                    if (content) {
+                        fullResponse += content;
+                        updateMessage(aiMsgId, fullResponse);
+                    }
+                } catch (e) {
+                    console.error('解析错误:', e, '原始数据:', line);
+                }
+            }
+        }
+
+        if (buffer.trim().length > 0) {
+            try {
+                const data = JSON.parse(buffer.replace('data: ', ''));
+                const content = data.choices?.[0]?.delta?.content || '';
+                if (content) {
+                    fullResponse += content;
+                    updateMessage(aiMsgId, fullResponse);
+                }
+            } catch (e) {
+                console.error('最终解析错误:', e);
+            }
+        }
+        
+        chatHistory.push(
+            { role: "user", content: message },
+            { role: "assistant", content: fullResponse }
+        );
+        saveHistory();
+
+    } catch (error) {
+        console.error('请求出错:', error);
+        addMessage('system', `请求失败: ${error.message}`);
+    } finally {
+        controller = null;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+// 以下辅助函数保持不变...
+function loadHistory() {
+    try {
+        const saved = localStorage.getItem('chatHistory');
+        return saved ? JSON.parse(saved) : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveHistory() {
+    while(chatHistory.length > MAX_HISTORY + 2) {
+        chatHistory.splice(1, 2);
+    }
+    localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+}
+
+function renderHistory() {
+    const chatBox = document.getElementById('chatBox');
+    chatBox.innerHTML = '';
+    
+    if(chatHistory.length > 1) {
+        const tip = document.createElement('div');
+        tip.className = 'history-tip';
+        tip.textContent = `已加载 ${Math.floor((chatHistory.length-1)/2)} 条历史记录`;
+        chatBox.appendChild(tip);
+    }
+    
+    chatHistory.slice(1).forEach(msg => {
+        addMessage(msg.role, msg.content);
+    });
+}
+
+function addMessage(role, content, isStreaming = false) {
+    const chatBox = document.getElementById('chatBox');
+    const msgId = 'msg-'+Date.now();
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.id = msgId;
+    msgDiv.className = `message ${role}-message`;
+    
+    if(isStreaming) {
+        msgDiv.innerHTML = `
+            <span class="typing-indicator">思考中</span>
+            <span class="dot-flashing"></span>
+        `;
+    } else {
+        msgDiv.innerHTML = formatContent(content);
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.innerHTML = '复制';
+        copyBtn.onclick = () => copyToClipboard(content);
+        msgDiv.appendChild(copyBtn);
+    }
+    
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return msgId;
+}
+
+function updateMessage(id, content) {
+    const msgDiv = document.getElementById(id);
+    if (msgDiv) {
+        msgDiv.classList.remove('typing-indicator');
+        msgDiv.innerHTML = formatContent(content);
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.innerHTML = '复制';
+        copyBtn.onclick = () => copyToClipboard(content);
+        msgDiv.appendChild(copyBtn);
+        
+        hljs.highlightAll();
+        const chatBox = document.getElementById('chatBox');
+        chatBox.scrollTop = chatBox.scrollHeight + 100;
+    }
+}
+
+function formatContent(content) {
+    content = content
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    
+    content = content
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.*?)\*/g, '<i>$1</i>')
+        .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;">')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/^> (.*)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/:([a-z0-9_]+):/g, '<span class="emoji">$1</span>')
+        .replace(/&lt;think&gt;(.*?)&lt;\/think&gt;/g, '<think>$1</think>');
+    
+    return content;
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('内容已复制');
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+
+document.getElementById('userInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+</script>
+</body>
+</html>
